@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจองและตรวจสอบคิวอุปกรณ์ห้องปฏิบัติการ</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        }
+                    },
+                    fontFamily: {
+                        prompt: ['Prompt', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Flatpickr CSS & JS for 24-hour time selector -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_green.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Google Fonts: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        /* Glassmorphic & Modern UI Utils */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .btn-press {
+            transition: transform 0.1s ease, box-shadow 0.2s ease;
+        }
+        .btn-press:active {
+            transform: scale(0.97);
+        }
+
+        /* Custom Flatpickr Overrides for White-Green Theme */
+        .flatpickr-calendar {
+            border-radius: 1rem !important;
+            box-shadow: 0 10px 25px -5px rgba(5, 150, 105, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid #d1fae5 !important;
+            font-family: 'Prompt', sans-serif !important;
+        }
+        .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
+            background: #059669 !important;
+            border-color: #059669 !important;
+        }
+        .flatpickr-time input:hover, .flatpickr-time .flatpickr-time-separator:hover, .flatpickr-time .flatpickr-am-pm:hover {
+            background: #ecfdf5 !important;
+        }
+        .flatpickr-time input.flatpickr-hour, .flatpickr-time input.flatpickr-minute {
+            font-weight: 700 !important;
+            color: #065f46 !important;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col bg-slate-50/50">
+
+    <!-- Navbar Header -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-emerald-100/80 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 sm:h-20 items-center">
+                
+                <!-- Logo & Brand -->
+                <div class="flex items-center space-x-3.5">
+                    <div class="w-11 h-11 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-emerald-200">
+                        <i class="fa-solid fa-microscope"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-slate-900 text-base sm:text-lg leading-tight tracking-tight">ระบบจองคิวอุปกรณ์ห้องปฏิบัติการ</h1>
+                        <p class="text-xs text-emerald-700 font-medium hidden sm:block">ภาควิชาพฤกษศาสตร์ คณะวิทยาศาสตร์</p>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation Buttons -->
+                <nav class="hidden md:flex items-center space-x-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60">
+                    <button id="btn-booking" onclick="switchTab('booking')" class="px-4 py-2 rounded-xl bg-white text-emerald-700 font-bold text-xs sm:text-sm shadow-sm transition flex items-center space-x-2">
+                        <i class="fa-solid fa-calendar-plus text-emerald-600"></i>
+                        <span>จองคิวอุปกรณ์</span>
+                    </button>
+                    <button id="btn-my-bookings" onclick="switchTab('my-bookings')" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-medium text-xs sm:text-sm transition flex items-center space-x-2">
+                        <i class="fa-solid fa-calendar-check text-slate-400"></i>
+                        <span>ตารางการใช้งาน</span>
+                    </button>
+                    <button id="btn-team" onclick="switchTab('team')" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-medium text-xs sm:text-sm transition flex items-center space-x-2">
+                        <i class="fa-solid fa-user-group text-slate-400"></i>
+                        <span>บุคลากรผู้ดูแล</span>
+                    </button>
+                    <button id="btn-admin" onclick="checkAdminAccess()" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-medium text-xs sm:text-sm transition flex items-center space-x-2">
+                        <i class="fa-solid fa-shield-halved text-slate-400"></i>
+                        <span>ผู้ดูแลระบบ</span>
+                    </button>
+                </nav>
+
+                <!-- Mobile Menu Button -->
+                <div class="flex items-center md:hidden">
+                    <button onclick="toggleMobileMenu()" class="p-2.5 rounded-xl text-slate-600 hover:bg-slate-100 border border-slate-200">
+                        <i class="fa-solid fa-bars text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Menu -->
+        <div id="mobile-menu" class="hidden md:hidden border-t border-slate-100 bg-white px-4 pt-3 pb-5 space-y-2 shadow-lg">
+            <button onclick="switchTab('booking'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-emerald-800 bg-emerald-50 font-bold text-sm flex items-center space-x-3">
+                <i class="fa-solid fa-calendar-plus text-emerald-600 w-5"></i>
+                <span>จองคิวอุปกรณ์</span>
+            </button>
+            <button onclick="switchTab('my-bookings'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-700 font-medium text-sm flex items-center space-x-3 hover:bg-slate-50">
+                <i class="fa-solid fa-calendar-check text-slate-400 w-5"></i>
+                <span>ตารางการใช้งาน</span>
+            </button>
+            <button onclick="switchTab('team'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-700 font-medium text-sm flex items-center space-x-3 hover:bg-slate-50">
+                <i class="fa-solid fa-user-group text-slate-400 w-5"></i>
+                <span>บุคลากรผู้ดูแล</span>
+            </button>
+            <button onclick="checkAdminAccess(); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-700 font-medium text-sm flex items-center space-x-3 hover:bg-slate-50">
+                <i class="fa-solid fa-shield-halved text-slate-400 w-5"></i>
+                <span>สำหรับผู้ดูแลระบบ</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full">
+
+        <!-- Notification Box -->
+        <div id="alert-box" class="hidden mb-6 p-4 rounded-2xl text-sm flex items-center justify-between shadow-sm border transition-all duration-300">
+            <div class="flex items-center space-x-3">
+                <i id="alert-icon" class="text-lg"></i>
+                <span id="alert-message" class="font-medium"></span>
+            </div>
+            <button onclick="hideAlert()" class="text-slate-400 hover:text-slate-600 p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Announcement Banner (White-Green Fresh Style) -->
+        <div class="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white p-5 sm:p-6 rounded-3xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 shadow-lg shadow-emerald-900/10 border border-emerald-700/30">
+            <div class="flex items-start space-x-3.5">
+                <div class="p-2.5 bg-emerald-800/80 rounded-2xl shrink-0 mt-0.5 border border-emerald-600/50">
+                    <i class="fa-solid fa-bullhorn text-emerald-200 text-base"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-sm sm:text-base tracking-wide text-emerald-50">ข้อกำหนดและเงื่อนไขการใช้งานนอกเวลา</h3>
+                    <p class="text-xs text-emerald-200/90 mt-1 leading-relaxed">การใช้งานวันหยุดหรือนอกเวลาทำการ (หลัง 16:30 น.) ต้องระบุชื่ออาจารย์/ผู้รับผิดชอบดูแลเสมอ</p>
+                </div>
+            </div>
+            <button onclick="openAnnouncementModal()" class="btn-press px-4 py-2.5 bg-white text-emerald-900 font-bold rounded-xl text-xs hover:bg-emerald-50 transition shrink-0 shadow-sm flex items-center space-x-2">
+                <i class="fa-solid fa-file-contract text-emerald-600"></i>
+                <span>อ่านระเบียบการใช้งาน</span>
+            </button>
+        </div>
+
+        <!-- TAB 1: FORM BOOKING -->
+        <section id="tab-booking" class="max-w-3xl mx-auto">
+            <div class="bg-white border border-emerald-100/80 rounded-3xl p-6 sm:p-8 shadow-sm">
+                <div class="border-b border-slate-100 pb-5 mb-6 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-pen-to-square text-emerald-600"></i>
+                            <span>ลงทะเบียนจองคิวอุปกรณ์</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">ตรวจสอบคิวว่างก่อนจอง ลดการประสานงานผ่าน LINE และรวมตารางการใช้งานไว้ในที่เดียว</p>
+                    </div>
+                    <span class="hidden sm:inline-block px-3 py-1 bg-emerald-50 text-emerald-700 font-semibold text-xs rounded-full border border-emerald-200/60">
+                        ระบบเวลา 24 ชม.
+                    </span>
+                </div>
+
+                <form id="booking-form" onsubmit="handleBooking(event)" class="space-y-6">
+                    <!-- User Info Section -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">ชื่อ-นามสกุล ผู้ใช้งาน <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <i class="fa-solid fa-user absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                                <input type="text" id="user-name" required placeholder="อนวัช ผาดไพบูลย์" class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">อีเมลติดต่อ <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <i class="fa-solid fa-envelope absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                                <input type="email" id="user-email" required placeholder="XX@ku.th" class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lab Selection -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">เลือกห้องปฏิบัติการ <span class="text-rose-500">*</span></label>
+                        <select id="lab-room" onchange="onLabRoomChange()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white font-medium text-slate-700 transition">
+                            <option value="microscope">ห้องกล้องจุลทรรศน์ (Microscope Lab)</option>
+                            <option value="anatomy">ห้องปฏิบัติการกายวิภาคศาสตร์ (Anatomy Lab)</option>
+                        </select>
+                    </div>
+
+                    <!-- Equipment Selection -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">เลือกอุปกรณ์ที่ต้องการใช้งาน <span class="text-rose-500">*</span></label>
+                        <select id="equipment" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white font-medium text-slate-700 transition">
+                            <!-- Populated dynamically via JavaScript -->
+                        </select>
+                    </div>
+
+                    <!-- Date & 24hr Time Inputs -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">วันที่ใช้งาน <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <input type="date" id="booking-date" required onchange="checkTimeSlotRules()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white font-medium text-slate-700 transition">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">เวลาเริ่มต้น (24 ชม.) <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <input type="text" id="time-start" value="09:00" required class="time-picker w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white font-semibold text-slate-800 transition" placeholder="09:00">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">เวลาสิ้นสุด (24 ชม.) <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <input type="text" id="time-end" value="12:00" required class="time-picker w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white font-semibold text-slate-800 transition" placeholder="12:00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Availability Panel -->
+                    <div id="availability-panel" class="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-check text-emerald-600"></i> ตรวจสอบคิวของอุปกรณ์</h3>
+                                <p class="text-[11px] text-slate-500 mt-1">คิวที่แสดงเป็นรายการที่ระบบทราบในขณะนี้ กรุณาตรวจสอบก่อนส่งคำขอจอง</p>
+                            </div>
+                            <span id="availability-status" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">พร้อมตรวจสอบ</span>
+                        </div>
+                        <div id="availability-list" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                    </div>
+
+                    <!-- Dynamic Field: Supervisor -->
+                    <div id="supervisor-field-container" class="hidden p-4 bg-amber-50/90 rounded-2xl border border-amber-200/80 space-y-2">
+                        <label class="block text-xs font-bold text-amber-900">ชื่ออาจารย์/ผู้รับผิดชอบดูแล <span class="text-rose-500">*</span></label>
+                        <input type="text" id="supervisor-name" placeholder="ระบุชื่ออาจารย์ที่ควบคุมการใช้งาน" class="w-full px-4 py-2.5 rounded-xl border border-amber-200 text-sm focus:outline-none focus:border-amber-500 bg-white">
+                        <p id="supervisor-notice-text" class="text-[11px] text-amber-700 font-medium">* จำเป็นต้องมีผู้ควบคุมดูแลในการใช้งาน</p>
+                    </div>
+
+                    <!-- Dynamic Notice -->
+                    <div id="photo-notice-container" class="hidden p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200/80">
+                        <p class="text-xs text-emerald-800 font-medium flex items-center">
+                            <i class="fa-solid fa-circle-info mr-2 text-emerald-600 text-sm"></i>
+                            <span>การจองใช้งานนอกเวลาทำการ (ก่อน 08:30 น. หรือ หลัง 16:30 น.) กรุณาติดต่อผู้ดูแลประจำห้องล่วงหน้า</span>
+                        </p>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn-press w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-2xl shadow-md shadow-emerald-200 transition text-sm flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-check"></i>
+                        <span>ตรวจสอบและส่งคำขอจอง</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- TAB 2: MY BOOKINGS / TIMELINE -->
+        <section id="tab-my-bookings" class="hidden space-y-6">
+            <!-- Header Controls -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                <div class="flex items-center space-x-1.5 bg-slate-100 p-1.5 rounded-xl w-full sm:w-auto">
+                    <button id="view-timeline-btn" onclick="switchView('timeline')" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold bg-white text-emerald-700 shadow-sm transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-calendar-day text-emerald-600"></i>
+                        <span>มุมมองตารางเวลา</span>
+                    </button>
+                    <button id="view-list-btn" onclick="switchView('list')" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>รายการทั้งหมด</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-2 w-full sm:w-auto">
+                    <div class="relative w-full sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="search-input" onkeyup="renderBookingsList()" placeholder="ค้นหาการจอง/ผู้ใช้งาน..." class="w-full pl-8 pr-4 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/50">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TIMELINE VIEW -->
+            <div id="timeline-view" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Calendar Sidebar -->
+                <div class="bg-white p-5 rounded-3xl border border-slate-200/80 space-y-4 shadow-sm">
+                    <div class="flex justify-between items-center">
+                        <h3 id="cal-month-year-label" class="font-bold text-slate-900 text-sm"></h3>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-xl border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 flex items-center justify-center text-xs transition">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <button onclick="changeMonth(1)" class="w-8 h-8 rounded-xl border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 flex items-center justify-center text-xs transition">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-7 gap-1 text-center font-bold text-[11px] text-slate-400 py-1">
+                        <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
+                    </div>
+
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-1">
+                        <!-- Calendar Days rendered via JavaScript -->
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-100 flex flex-col space-y-2 text-[11px] text-slate-500">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                            <span>วันที่เลือกดู</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                            <span>วันหยุดนักขัตฤกษ์ / สุดสัปดาห์</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Day Timeline Content -->
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 flex justify-between items-center shadow-sm">
+                        <button onclick="changeDay(-1)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 text-xs font-semibold flex items-center space-x-1 transition">
+                            <i class="fa-solid fa-arrow-left text-[10px]"></i>
+                            <span>วันก่อนหน้า</span>
+                        </button>
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-regular fa-calendar text-emerald-600"></i>
+                            <span id="timeline-date-label" class="font-bold text-slate-900 text-sm sm:text-base"></span>
+                            <input type="date" id="timeline-date-picker" onchange="onTimelineDateChange(this.value)" class="w-6 h-6 border-0 p-0 text-transparent bg-transparent cursor-pointer">
+                        </div>
+                        <button onclick="changeDay(1)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 text-xs font-semibold flex items-center space-x-1 transition">
+                            <span>วันถัดไป</span>
+                            <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <div id="timeline-cards-container" class="space-y-3">
+                        <!-- Cards dynamically rendered via JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIST VIEW -->
+            <div id="list-view" class="hidden bg-white border border-slate-200/80 rounded-3xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b border-slate-200">
+                                <th class="p-4">ผู้จอง</th>
+                                <th class="p-4">อุปกรณ์ / ห้องปฏิบัติการ</th>
+                                <th class="p-4">วัน-เวลา (24 ชม.)</th>
+                                <th class="p-4">สถานะ</th>
+                                <th class="p-4 text-right">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="booking-list" class="divide-y divide-slate-100 text-sm">
+                            <!-- Rendered via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: TEAM & STAFF -->
+        <section id="tab-team" class="hidden max-w-6xl mx-auto space-y-8">
+            <div class="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-5 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-user-group text-emerald-600"></i>
+                            <span>คณะผู้รับผิดชอบและบุคลากรประจำห้องปฏิบัติการ</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">อาจารย์ผู้รับผิดชอบและทีมงานผู้ดูแลเครื่องมือประจำห้องปฏิบัติการ</p>
+                    </div>
+                    <!-- Search Staff -->
+                    <div class="relative w-full md:w-72">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                        <input type="text" id="staff-search-input" onkeyup="filterStaffCards()" placeholder="ค้นหาชื่อ, อีเมล หรือห้อง..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/50">
+                    </div>
+                </div>
+
+                <!-- SECTION 1: MICROSCOPE LAB -->
+                <div class="space-y-4 mb-10 staff-section" data-lab="microscope">
+                    <div class="flex items-center space-x-3 text-emerald-900 font-bold text-base border-l-4 border-emerald-600 pl-3">
+                        <i class="fa-solid fa-microscope text-emerald-600"></i>
+                        <span>ห้องกล้องจุลทรรศน์ (Microscope Laboratory)</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                        <!-- Profile Card 1 -->
+                        <div class="staff-card bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition space-y-4 relative overflow-hidden" data-name="อรอุษา คำสุข ornusa khamsuk fsciosk@ku.ac.th">
+                            <div class="flex items-start space-x-4">
+                                <div class="relative shrink-0">
+                                    <img src="https://www.botany.sci.ku.ac.th/wp-content/uploads/2016/06/Ornusa-Kumsuk-e1467176430140.jpg" 
+                                         alt="ผศ.ดร. อรอุษา คำสุข" 
+                                         class="w-20 h-20 rounded-2xl object-cover border border-slate-200 shadow-sm"
+                                         onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');">
+                                    <div class="hidden w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-700 text-white flex items-center justify-center font-bold text-2xl shadow-sm">
+                                        <i class="fa-solid fa-user-tie"></i>
+                                    </div>
+                                    <span class="absolute -bottom-1 -right-1 bg-emerald-500 w-4 h-4 rounded-full border-2 border-white" title="พร้อมให้คำปรึกษา"></span>
+                                </div>
+                                <div class="space-y-1 flex-1">
+                                    <span class="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[11px] rounded-md border border-emerald-200/50">อาจารย์ผู้รับผิดชอบหลัก</span>
+                                    <h3 class="font-bold text-slate-900 text-base leading-tight">ผศ.ดร. อรอุษา คำสุข</h3>
+                                    <p class="text-xs font-semibold text-slate-500 italic">Asst.Prof. Ornusa Khamsuk (Ph.D)</p>
+                                    <p class="text-xs text-emerald-600 font-medium pt-0.5">ห้องกล้องจุลทรรศน์</p>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-slate-100 space-y-2 text-xs">
+                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
+                                    <span class="text-slate-500 flex items-center space-x-2">
+                                        <i class="fa-regular fa-envelope text-emerald-600 w-4"></i>
+                                        <span class="font-medium">อีเมล:</span>
+                                    </span>
+                                    <a href="mailto:fsciosk@ku.ac.th" class="font-mono text-emerald-600 hover:underline font-semibold">fsciosk@ku.ac.th</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Profile Card 2 -->
+                        <div class="staff-card bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition space-y-4 relative overflow-hidden" data-name="พรสวรรค์ สุทธินนท์ pornsawan sutthinon fscipwsu@ku.ac.th">
+                            <div class="flex items-start space-x-4">
+                                <div class="relative shrink-0">
+                                    <img src="https://www.botany.sci.ku.ac.th/wp-content/uploads/2019/03/39991091_10212888807763150_4546403653694521344_n.jpg" 
+                                         alt="ผศ.ดร. พรสวรรค์ สุทธินนท์" 
+                                         class="w-20 h-20 rounded-2xl object-cover border border-slate-200 shadow-sm"
+                                         onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');">
+                                    <div class="hidden w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-700 text-white flex items-center justify-center font-bold text-2xl shadow-sm">
+                                        <i class="fa-solid fa-user-tie"></i>
+                                    </div>
+                                    <span class="absolute -bottom-1 -right-1 bg-emerald-500 w-4 h-4 rounded-full border-2 border-white" title="พร้อมให้คำปรึกษา"></span>
+                                </div>
+                                <div class="space-y-1 flex-1">
+                                    <span class="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[11px] rounded-md border border-emerald-200/50">อาจารย์ผู้รับผิดชอบหลัก</span>
+                                    <h3 class="font-bold text-slate-900 text-base leading-tight">ผศ.ดร. พรสวรรค์ สุทธินนท์</h3>
+                                    <p class="text-xs font-semibold text-slate-500 italic">Asst.Prof. Pornsawan Sutthinon (Ph.D)</p>
+                                    <p class="text-xs text-emerald-600 font-medium pt-0.5">ห้องกล้องจุลทรรศน์ & กายวิภาคศาสตร์</p>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-slate-100 space-y-2 text-xs">
+                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
+                                    <span class="text-slate-500 flex items-center space-x-2">
+                                        <i class="fa-regular fa-envelope text-emerald-600 w-4"></i>
+                                        <span class="font-medium">อีเมล:</span>
+                                    </span>
+                                    <a href="mailto:fscipwsu@ku.ac.th" class="font-mono text-emerald-600 hover:underline font-semibold">fscipwsu@ku.ac.th</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: ANATOMY LAB -->
+                <div class="space-y-4 staff-section" data-lab="anatomy">
+                    <div class="flex items-center space-x-3 text-teal-900 font-bold text-base border-l-4 border-teal-600 pl-3">
+                        <i class="fa-solid fa-bone text-teal-600"></i>
+                        <span>ห้องปฏิบัติการกายวิภาคศาสตร์ (Anatomy Laboratory)</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                        <!-- Profile Card: สาธิกา -->
+                        <div class="staff-card bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition space-y-4 relative overflow-hidden" data-name="สาธิกา อ่อนวงศ์ sathika onwong">
+                            <div class="flex items-start space-x-4">
+                                <div class="relative shrink-0">
+                                    <img src="https://scontent.fbkk4-3.fna.fbcdn.net/v/t39.30808-6/491834618_9701655899871237_1979657385440118252_n.jpg?stp=dst-jpg_tt6&cstp=mx960x967&ctp=s960x967&_nc_cat=108&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=pduu37r1PJsQ7kNvwHO6w-N&_nc_oc=Adr_kgE4fUv3LlSPNMI4sAh5KvYb5npvvtwmq3gogJVCHxwKFW5rPeItT5cZByTnHPk&_nc_zt=23&_nc_ht=scontent.fbkk4-3.fna&_nc_gid=albCgMrAIVOS0YR7wkO5fA&_nc_ss=7b2a8&oh=00_AQFd6e_JRQY1GLhhX3ETwBDzDD8HE24PByoUXvlcrbhClg&oe=6A80FB8B" 
+                                         alt="นางสาวสาธิกา อ่อนวงศ์" 
+                                         class="w-20 h-20 rounded-2xl object-cover border border-slate-200 shadow-sm"
+                                         onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');">
+                                    <div class="hidden w-20 h-20 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-700 text-white flex items-center justify-center font-bold text-2xl shadow-sm">
+                                        <i class="fa-solid fa-user-graduate"></i>
+                                    </div>
+                                </div>
+                                <div class="space-y-1 flex-1">
+                                    <span class="inline-block px-2.5 py-0.5 bg-slate-100 text-slate-700 font-bold text-[11px] rounded-md">ผู้ดูแลประจำห้อง (นิสิต)</span>
+                                    <h3 class="font-bold text-slate-900 text-base leading-tight">นางสาวสาธิกา อ่อนวงศ์</h3>
+                                    <p class="text-xs font-semibold text-slate-500 italic">Ms. Sathika Onwong</p>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-slate-100 space-y-2 text-xs">
+                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
+                                    <span class="text-slate-500 flex items-center space-x-2">
+                                        <i class="fa-regular fa-envelope text-emerald-600 w-4"></i>
+                                        <span class="font-medium">Facebook:</span>
+                                    </span>
+                                    <a href="https://web.facebook.com/stk.satigu" class="font-mono text-emerald-600 hover:underline font-semibold" target="_blank">sathika.onwong</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Profile Card: อนวัช -->
+                        <div class="staff-card bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition space-y-4 relative overflow-hidden" data-name="อนวัช ผาดไพบูลย์ anawat phadphaiboon">
+                            <div class="flex items-start space-x-4">
+                                <div class="relative shrink-0">
+                                    <img src="https://scontent.fbkk4-4.fna.fbcdn.net/v/t39.30808-6/592164294_3365297576951935_797454321802449069_n.jpg?stp=dst-jpg_tt6&cstp=mx1108x1109&ctp=s1108x1109&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=aAJ96zbSlwIQ7kNvwEEEkEO&_nc_oc=AdqdYrfF3dvDF_YkIb2xAijDxNjOx58alNa_aitTQnhayd80jtChx1N4ccsj5fOIomE&_nc_zt=23&_nc_ht=scontent.fbkk4-4.fna&_nc_gid=n6hqJTuHXQWuQDhV1NOJ7A&_nc_ss=7b2a8&oh=00_AQF_yw_347-O3yEMTj1R2O4t2JXwk_V7bkXFr4pJyt253g&oe=6A80F608" 
+                                         alt="นายอนวัช ผาดไพบูลย์" 
+                                         class="w-20 h-20 rounded-2xl object-cover border border-slate-200 shadow-sm"
+                                         onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');">
+                                    <div class="hidden w-20 h-20 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-700 text-white flex items-center justify-center font-bold text-2xl shadow-sm">
+                                        <i class="fa-solid fa-user-graduate"></i>
+                                    </div>
+                                </div>
+                                <div class="space-y-1 flex-1">
+                                    <span class="inline-block px-2.5 py-0.5 bg-slate-100 text-slate-700 font-bold text-[11px] rounded-md">ผู้ดูแลประจำห้อง (นิสิต)</span>
+                                    <h3 class="font-bold text-slate-900 text-base leading-tight">นายอนวัช ผาดไพบูลย์</h3>
+                                    <p class="text-xs font-semibold text-slate-500 italic">Mr. Anawat Phadphaiboon</p>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-slate-100 space-y-2 text-xs">
+                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
+                                    <span class="text-slate-500 flex items-center space-x-2">
+                                        <i class="fa-brands fa-facebook text-emerald-600 w-4"></i>
+                                        <span class="font-medium">Facebook:</span>
+                                    </span>
+                                    <a href="https://web.facebook.com/champ.keroro" class="font-mono text-emerald-600 hover:underline font-semibold">Champzz Anawat</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty Search Result State -->
+                <div id="no-staff-found" class="hidden py-12 text-center space-y-3">
+                    <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto text-lg">
+                        <i class="fa-solid fa-user-slash"></i>
+                    </div>
+                    <p class="text-sm font-bold text-slate-700">ไม่พบรายชื่อบุคลากรที่ตรงกับคำค้นหา</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: ADMIN MANAGEMENT -->
+        <section id="tab-admin" class="hidden space-y-6">
+            <div class="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+                            <span>แผงควบคุมสำหรับผู้ดูแลระบบ</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">อนุมัติและจัดการรายการจองคิวเครื่องมือในระบบ</p>
+                    </div>
+                    <button onclick="logoutAdmin()" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>ออกจากระบบ</span>
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b border-slate-200">
+                                <th class="p-4">ชื่อผู้จอง</th>
+                                <th class="p-4">อีเมล</th>
+                                <th class="p-4">อุปกรณ์ / ห้อง</th>
+                                <th class="p-4">วัน-เวลา (24 ชม.)</th>
+                                <th class="p-4 text-right">จัดการอนุมัติ / ลบ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-booking-list" class="divide-y divide-slate-100 text-sm">
+                            <!-- Rendered via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Bulk Holiday Import Card -->
+            <div class="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+                <div class="border-b border-slate-100 pb-4">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                        <i class="fa-solid fa-file-import text-emerald-600"></i>
+                        <span>นำเข้าวันหยุดแบบชุด (Bulk Import ประจำปี)</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1">เลือกโหลดชุดวันหยุดมาตรฐานหรือวางข้อมูลวันหยุดในรูปแบบ JSON</p>
+                </div>
+
+                <div class="flex flex-wrap gap-2 pt-1">
+                    <button type="button" onclick="loadDefaultHolidays('2026')" class="btn-press px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition flex items-center space-x-1">
+                        <i class="fa-solid fa-bolt text-emerald-600"></i>
+                        <span>โหลดวันหยุดมาตรฐานปี 2026</span>
+                    </button>
+                    <button type="button" onclick="loadDefaultHolidays('2027')" class="btn-press px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition flex items-center space-x-1">
+                        <i class="fa-solid fa-bolt text-emerald-600"></i>
+                        <span>โหลดวันหยุดมาตรฐานปี 2027</span>
+                    </button>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold text-slate-700">วางข้อมูลวันหยุด (รูปแบบ JSON)</label>
+                    <textarea id="bulk-holiday-textarea" rows="3" placeholder='{"2026-01-01": "วันขึ้นปีใหม่", "2026-04-13": "วันสงกรานต์"}' class="w-full p-3 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:border-emerald-500 bg-slate-50"></textarea>
+                </div>
+
+                <button type="button" onclick="handleBulkImportHolidays()" class="btn-press py-2.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                    <span>นำเข้าข้อมูลวันหยุดชุดนี้ทันที</span>
+                </button>
+            </div>
+
+            <!-- Holiday Management Card -->
+            <div class="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+                <div class="border-b border-slate-100 pb-4">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                        <i class="fa-solid fa-calendar-day text-emerald-600"></i>
+                        <span>จัดการวันหยุดรายวัน / วันหยุดพิเศษ</span>
+                    </h3>
+                </div>
+
+                <!-- Add Holiday Form -->
+                <form onsubmit="handleAddHoliday(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">วันที่วันหยุด <span class="text-rose-500">*</span></label>
+                        <input type="date" id="holiday-date-input" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อวันหยุด / หมายเหตุ <span class="text-rose-500">*</span></label>
+                        <input type="text" id="holiday-name-input" required placeholder="เช่น วันหยุดพิเศษประจำคณะ" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>เพิ่มวันหยุดใหม่</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Holiday List Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                                <th class="p-3">วันที่ (ปี-เดือน-วัน)</th>
+                                <th class="p-3">ชื่อวันหยุด</th>
+                                <th class="p-3 text-right">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holiday-list-tbody" class="divide-y divide-slate-100">
+                            <!-- Rendered via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto py-6">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            <p>© 2026 ระบบจองคิวอุปกรณ์ห้องปฏิบัติการ. คณะวิทยาศาสตร์และอนามัยศาสตร์.</p>
+        </div>
+    </footer>
+
+    <!-- MODALS -->
+
+    <!-- Announcement Modal -->
+    <div id="announcement-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2 text-emerald-900">
+                    <i class="fa-solid fa-scroll text-emerald-600 text-lg"></i>
+                    <h3 class="font-bold text-slate-900 text-base">ระเบียบการใช้งานห้องปฏิบัติการ</h3>
+                </div>
+                <button onclick="closeAnnouncementModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-xs text-slate-600 leading-relaxed max-h-80 overflow-y-auto p-1 pr-2 border-b border-slate-100">
+                <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200/70 text-amber-900 font-medium text-[11px] flex items-start space-x-2 mb-2">
+                    <i class="fa-solid fa-shield-halved text-amber-600 mt-0.5 shrink-0"></i>
+                    <span>โปรดอ่านและทำความเข้าใจระเบียบการใช้งานก่อนดำเนินการยืนยันการจองคิว</span>
+                </div>
+                <p class="font-bold text-emerald-800 flex items-center"><i class="fa-solid fa-clock mr-1.5 text-xs"></i> 1. เวลาทำการปกติ</p>
+                <p class="pl-4">เปิดให้บริการวันจันทร์ - วันศุกร์ เวลา 08:30 น. - 16:30 น.</p>
+                
+                <p class="font-bold text-emerald-800 flex items-center"><i class="fa-solid fa-user-lock mr-1.5 text-xs"></i> 2. การใช้งานนอกเวลาทำการและวันหยุด</p>
+                <p class="pl-4">ต้องได้รับการรับรองจากอาจารย์หรือผู้ควบคุมดูแล และส่งเรื่องรอผู้ดูแลระบบอนุมัติล่วงหน้า</p>
+                
+                <p class="font-bold text-emerald-800 flex items-center"><i class="fa-solid fa-triangle-exclamation mr-1.5 text-xs"></i> 3. ความรับผิดชอบและการดูแลรักษาอุปกรณ์</p>
+                <p class="pl-4">ผู้ใช้งานต้องใช้งานเครื่องมือตามขั้นตอนที่ถูกต้อง ทำความสะอาดและจัดเก็บอุปกรณ์เข้าที่ทุกครั้ง</p>
+            </div>
+
+            <!-- Checkbox for mandatory acceptance -->
+            <div id="terms-checkbox-container" class="hidden pt-1">
+                <label class="flex items-start space-x-2.5 cursor-pointer p-3 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border border-slate-200 transition">
+                    <input type="checkbox" id="terms-checkbox" onchange="onTermsCheckboxChange()" class="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer">
+                    <span class="text-xs font-semibold text-slate-700 select-none">ข้าพเจ้าได้อ่าน เข้าใจ และตกลงจะปฏิบัติตามระเบียบการใช้งานห้องปฏิบัติการทุกประการ</span>
+                </label>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex space-x-2 pt-1">
+                <button id="modal-readonly-btn" onclick="closeAnnouncementModal()" class="w-full py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 transition">
+                    รับทราบ
+                </button>
+                <button id="modal-cancel-btn" onclick="closeAnnouncementModal()" class="hidden py-2.5 px-4 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 transition">
+                    ยกเลิก
+                </button>
+                <button type="button" id="modal-accept-btn" disabled onclick="confirmBookingWithTerms()" class="hidden flex-1 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 transition opacity-50 cursor-not-allowed flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-check"></i>
+                    <span>ยอมรับระเบียบและยืนยันการจอง</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Login Modal -->
+    <div id="admin-login-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl shadow-sm">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-base">เข้าสู่ระบบผู้ดูแลระบบ</h3>
+                <p class="text-xs text-slate-400">กรุณากรอกรหัสผ่านผู้ดูแลระบบ (รหัสผ่านเริ่มต้น: admin)</p>
+            </div>
+            <input type="password" id="admin-password-input" placeholder="รหัสผ่านผู้ดูแลระบบ" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+            <div class="flex space-x-2">
+                <button onclick="closeAdminLoginModal()" class="flex-1 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-50 transition">
+                    ยกเลิก
+                </button>
+                <button onclick="verifyAdminPassword()" class="flex-1 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 transition">
+                    เข้าสู่ระบบ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="details-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-900 text-base">รายละเอียดการจองคิว</h3>
+                <button onclick="closeDetailsModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <span class="text-slate-400">ชื่อผู้จอง:</span>
+                    <p id="detail-name" class="font-bold text-slate-800 text-sm"></p>
+                </div>
+                <div>
+                    <span class="text-slate-400">ห้องปฏิบัติการ:</span>
+                    <p id="detail-room" class="font-semibold text-slate-700"></p>
+                </div>
+                <div>
+                    <span class="text-slate-400">อุปกรณ์:</span>
+                    <p id="detail-equipment" class="font-semibold text-emerald-700"></p>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-slate-400">วันที่:</span>
+                        <p id="detail-date" class="font-semibold text-slate-700"></p>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">เวลา (24 ชม.):</span>
+                        <p id="detail-time" class="font-semibold text-slate-700"></p>
+                    </div>
+                </div>
+                <div id="detail-supervisor-container" class="hidden bg-amber-50 p-2.5 rounded-xl border border-amber-200/60">
+                    <span class="text-amber-800 font-bold">ผู้ควบคุมดูแล:</span>
+                    <p id="detail-supervisor" class="text-amber-900 font-semibold"></p>
+                </div>
+            </div>
+            <div class="flex space-x-2 pt-2">
+                <button onclick="closeDetailsModal()" class="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-200 transition">
+                    ปิดหน้าต่าง
+                </button>
+                <button onclick="openCancelFromDetails()" class="flex-1 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 font-bold rounded-xl text-xs hover:bg-rose-100 transition">
+                    ยกเลิกคิวนี้
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancel Modal -->
+    <div id="cancel-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-base">ยืนยันการยกเลิกจองคิว</h3>
+                <p class="text-xs text-slate-400">กรุณากรอกอีเมลที่ใช้จองเพื่อยืนยันการยกเลิก</p>
+            </div>
+            <input type="email" id="cancel-email-input" placeholder="อีเมลของคุณ" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-rose-500">
+            <div class="flex space-x-2">
+                <button onclick="closeCancelModal()" class="flex-1 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-50 transition">
+                    ยกเลิก
+                </button>
+                <button onclick="confirmCancellation()" class="flex-1 py-2.5 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 transition">
+                    ยืนยันยกเลิกคิว
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxF4GTXtlWkXkv7uFxiWHbv07pS8RSWf4ldpLfRfLnPp6LxbDaEun-06FW2Q44AZ2Rc/exec';
+        let selectedBookingId = null;
+        let isAdminLoggedIn = false;
+        let pendingBookingData = null;
+
+        // โหลดข้อมูลวันหยุดจาก LocalStorage หากไม่มีให้ใช้ค่าเริ่มต้น
+        let thaiHolidays = JSON.parse(localStorage.getItem('lab_holidays')) || {
+            "2026-01-01": "วันขึ้นปีใหม่",
+            "2026-03-03": "วันมาฆบูชา",
+            "2026-04-06": "วันจักรี",
+            "2026-04-13": "วันสงกรานต์",
+            "2026-04-14": "วันสงกรานต์",
+            "2026-04-15": "วันสงกรานต์",
+            "2026-05-01": "วันแรงงานแห่งชาติ",
+            "2026-05-04": "วันฉัตรมงคล",
+            "2026-05-31": "วันวิสาขบูชา",
+            "2026-07-01": "วันหยุดภาคครึ่งปี",
+            "2026-07-28": "วันเฉลิมพระชนมพรรษา ร.10",
+            "2026-07-29": "วันอาสาฬหบูชา",
+            "2026-07-30": "วันเข้าพรรษา",
+            "2026-08-12": "วันแม่แห่งชาติ",
+            "2026-10-13": "วันนวมินทรมหาราช",
+            "2026-10-23": "วันปิยมหาราช",
+            "2026-12-05": "วันพ่อแห่งชาติ",
+            "2026-12-10": "วันรัฐธรรมนูญ",
+            "2026-12-31": "วันสิ้นปี"
+        };
+
+        const equipmentsData = {
+            microscope: [
+                { name: "กล้องจุลทรรศน์แบบใช้แสง (Light Microscope)", staff: "ผศ.ดร. อรอุษา คำสุข / ผศ.ดร. พรสวรรค์ สุทธินนท์" },
+                { name: "กล้องจุลทรรศน์สเตอริโอ (Stereo Microscope)", staff: "ผศ.ดร. อรอุษา คำสุข / ผศ.ดร. พรสวรรค์ สุทธินนท์" }
+            ],
+            anatomy: [
+                { name: "Rotary Microtome 1 (เครื่องตัดชิ้นเนื้อพาราฟิน 1)", staff: "ผศ.ดร. พรสวรรค์ สุทธินนท์ (ผู้ดูแล: สาธิกา, อนวัช)" },
+                { name: "Rotary Microtome 2 (เครื่องตัดชิ้นเนื้อพาราฟิน 2)", staff: "ผศ.ดร. พรสวรรค์ สุทธินนท์ (ผู้ดูแล: สาธิกา, อนวัช)" },
+                { name: "Embedding Center (ชุดฝังพาราฟิน)", staff: "ผศ.ดร. พรสวรรค์ สุทธินนท์ (ผู้ดูแล: สาธิกา, อนวัช)" }
+            ]
+        };
+
+        let bookings = JSON.parse(localStorage.getItem('lab_bookings')) || [
+            {
+                id: 'B1772340001',
+                name: 'ดร.สมชาย ใจดี',
+                email: 'somchai.j@university.ac.th',
+                room: 'ห้องกล้องจุลทรรศน์ (Microscope Lab)',
+                equipment: 'กล้องจุลทรรศน์แบบใช้แสง (Light Microscope)',
+                date: '2026-08-15',
+                time: '09:00 - 12:00',
+                supervisor: '',
+                status: 'approved'
+            }
+        ];
+
+        let currentCalendarMonth = new Date().getMonth();
+        let currentCalendarYear = new Date().getFullYear();
+        let currentTimelineDate = getLocalDateISO();
+
+        window.onload = function() {
+            document.getElementById('booking-date').value = currentTimelineDate;
+            document.getElementById('booking-date').min = currentTimelineDate;
+            document.getElementById('timeline-date-picker').value = currentTimelineDate;
+
+            // Initialize Flatpickr 24-Hour Time Picker
+            flatpickr(".time-picker", {
+                enableTime: true,
+                noCalendar: true,
+                dateFormat: "H:i",
+                time_24hr: true,
+                minuteIncrement: 15,
+                locale: "th",
+                onChange: function() {
+                    checkTimeSlotRules();
+                }
+            });
+
+            updateEquipmentOptions();
+            checkTimeSlotRules();
+            renderAvailability();
+            renderCalendar();
+            renderMobileTimeline();
+            renderBookingsList();
+        };
+
+        function getLocalDateISO() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function timeToMinutes(t) {
+            if (!t || !/^\d{2}:\d{2}$/.test(t)) return NaN;
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        function getBookingTimeRange(booking) {
+            const match = String(booking.time || '').match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+            return match ? [timeToMinutes(match[1]), timeToMinutes(match[2])] : [NaN, NaN];
+        }
+
+        function hasBookingConflict(candidate) {
+            const start = timeToMinutes(candidate.startTime);
+            const end = timeToMinutes(candidate.endTime);
+            if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return false;
+            return bookings.some(b => {
+                if (b.date !== candidate.date || b.room !== candidate.room || b.equipment !== candidate.equipment) return false;
+                if (['cancelled', 'rejected'].includes(b.status)) return false;
+                const [bs, be] = getBookingTimeRange(b);
+                return Number.isFinite(bs) && Number.isFinite(be) && start < be && end > bs;
+            });
+        }
+
+        function renderAvailability() {
+            const list = document.getElementById('availability-list');
+            const status = document.getElementById('availability-status');
+            if (!list || !status) return;
+            const date = document.getElementById('booking-date')?.value;
+            const room = document.getElementById('lab-room')?.value;
+            const equipment = document.getElementById('equipment')?.value;
+            list.innerHTML = '';
+            if (!date || !room || !equipment) {
+                status.textContent = 'เลือกอุปกรณ์และวันที่';
+                status.className = 'text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600';
+                return;
+            }
+            const dayBookings = bookings.filter(b => b.date === date && b.room === document.getElementById('lab-room').options[document.getElementById('lab-room').selectedIndex].text && b.equipment === equipment && !['cancelled','rejected'].includes(b.status));
+            const slots = [];
+            for (let mins = 510; mins < 990; mins += 60) {
+                const sh = String(Math.floor(mins / 60)).padStart(2,'0');
+                const sm = String(mins % 60).padStart(2,'0');
+                const eh = String(Math.floor((mins + 60) / 60)).padStart(2,'0');
+                const em = String((mins + 60) % 60).padStart(2,'0');
+                const busy = dayBookings.some(b => { const [bs,be] = getBookingTimeRange(b); return mins < be && mins + 60 > bs; });
+                slots.push(`<button type="button" onclick="selectAvailabilitySlot('${sh}:${sm}','${eh}:${em}')" class="p-2 rounded-xl border text-left transition ${busy ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white border-emerald-200 hover:bg-emerald-50 text-emerald-700'}">${busy ? '🔴' : '🟢'} <span class="font-bold text-xs">${sh}:${sm}</span><span class="block text-[10px] opacity-75">${busy ? 'ไม่ว่าง' : 'ว่าง'}</span></button>`);
+            }
+            list.innerHTML = slots.join('');
+            const free = slots.filter(x => x.includes('ว่าง')).length;
+            status.textContent = free ? `${free} ช่วงเวลาว่าง` : 'ไม่มีคิวว่าง';
+            status.className = `text-[11px] font-bold px-2.5 py-1 rounded-full ${free ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+        }
+
+        function selectAvailabilitySlot(start, end) {
+            document.getElementById('time-start').value = start;
+            document.getElementById('time-end').value = end;
+            checkTimeSlotRules();
+            showAlert(`เลือกช่วงเวลา ${start}–${end} แล้ว กรุณาตรวจสอบข้อมูลและส่งคำขอจอง`, 'info');
+        }
+
+        function showAlert(msg, type = 'info') {
+            const box = document.getElementById('alert-box');
+            const icon = document.getElementById('alert-icon');
+            const text = document.getElementById('alert-message');
+
+            box.className = "mb-6 p-4 rounded-2xl text-sm flex items-center justify-between shadow-sm border transition-all duration-300 ";
+            if(type === 'success') {
+                box.className += "bg-emerald-50 border-emerald-200 text-emerald-800";
+                icon.className = "fa-solid fa-circle-check text-emerald-600";
+            } else if(type === 'error') {
+                box.className += "bg-rose-50 border-rose-200 text-rose-800";
+                icon.className = "fa-solid fa-circle-xmark text-rose-600";
+            } else {
+                box.className += "bg-emerald-50 border-emerald-200 text-emerald-800";
+                icon.className = "fa-solid fa-circle-info text-emerald-600";
+            }
+
+            text.textContent = msg;
+            box.classList.remove('hidden');
+
+            setTimeout(() => {
+                box.classList.add('hidden');
+            }, 5000);
+        }
+
+        function hideAlert() {
+            document.getElementById('alert-box').classList.add('hidden');
+        }
+
+        function filterStaffCards() {
+            const query = document.getElementById('staff-search-input').value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.staff-card');
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name') || '';
+                const text = card.innerText.toLowerCase();
+
+                if (name.includes(query) || text.includes(query)) {
+                    card.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            const noFound = document.getElementById('no-staff-found');
+            if (visibleCount === 0) {
+                noFound.classList.remove('hidden');
+            } else {
+                noFound.classList.add('hidden');
+            }
+        }
+
+        function isHolidayOrWeekend(dateStr) {
+            const d = new Date(dateStr);
+            const dayOfWeek = d.getDay(); 
+            if (dayOfWeek === 0 || dayOfWeek === 6) return true;
+            if (thaiHolidays[dateStr]) return true;
+            return false;
+        }
+
+        function changeMonth(direction) {
+            currentCalendarMonth += direction;
+            if (currentCalendarMonth > 11) {
+                currentCalendarMonth = 0;
+                currentCalendarYear++;
+            } else if (currentCalendarMonth < 0) {
+                currentCalendarMonth = 11;
+                currentCalendarYear--;
+            }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            const label = document.getElementById('cal-month-year-label');
+            if(!grid || !label) return;
+            grid.innerHTML = '';
+
+            const thaiMonths = [
+                "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+            ];
+
+            label.textContent = `${thaiMonths[currentCalendarMonth]} ${currentCalendarYear + 543}`;
+
+            const firstDayIndex = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
+            const totalDays = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+
+            for (let i = 0; i < firstDayIndex; i++) {
+                const emptyCell = document.createElement('div');
+                grid.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= totalDays; day++) {
+                const monthStr = String(currentCalendarMonth + 1).padStart(2, '0');
+                const dayStr = String(day).padStart(2, '0');
+                const dateStr = `${currentCalendarYear}-${monthStr}-${dayStr}`;
+
+                const cell = document.createElement('button');
+                cell.type = 'button';
+                
+                let isWeekendOrHoliday = isHolidayOrWeekend(dateStr);
+                let isSelected = (dateStr === currentTimelineDate);
+
+                let baseClasses = "h-9 w-full rounded-xl text-xs font-bold transition flex flex-col items-center justify-center relative ";
+                
+                if (isSelected) {
+                    baseClasses += " bg-emerald-600 text-white shadow-sm";
+                } else if (isWeekendOrHoliday) {
+                    baseClasses += " bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100";
+                } else {
+                    baseClasses += " bg-white border border-slate-200/80 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700";
+                }
+
+                cell.className = baseClasses;
+                
+                const holidayName = thaiHolidays[dateStr];
+                if (holidayName) cell.title = holidayName;
+
+                cell.innerHTML = `<span>${day}</span>`;
+                if (holidayName || (new Date(dateStr).getDay() === 0 || new Date(dateStr).getDay() === 6)) {
+                    cell.innerHTML += `<span class="w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-rose-500'} mt-0.5"></span>`;
+                }
+
+                cell.onclick = function() {
+                    currentTimelineDate = dateStr;
+                    document.getElementById('timeline-date-picker').value = currentTimelineDate;
+                    renderMobileTimeline();
+                    renderCalendar();
+                };
+
+                grid.appendChild(cell);
+            }
+        }
+
+        function openAnnouncementModal(isForBooking = false) {
+            const modal = document.getElementById('announcement-modal');
+            const checkboxContainer = document.getElementById('terms-checkbox-container');
+            const acceptBtn = document.getElementById('modal-accept-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            const readOnlyBtn = document.getElementById('modal-readonly-btn');
+            const termsCheckbox = document.getElementById('terms-checkbox');
+
+            if (isForBooking) {
+                checkboxContainer.classList.remove('hidden');
+                acceptBtn.classList.remove('hidden');
+                cancelBtn.classList.remove('hidden');
+                readOnlyBtn.classList.add('hidden');
+                if (termsCheckbox) termsCheckbox.checked = false;
+                if (acceptBtn) {
+                    setBookingConfirmButton(false);
+                }
+            } else {
+                checkboxContainer.classList.add('hidden');
+                acceptBtn.classList.add('hidden');
+                cancelBtn.classList.add('hidden');
+                readOnlyBtn.classList.remove('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeAnnouncementModal() {
+            document.getElementById('announcement-modal').classList.add('hidden');
+            pendingBookingData = null;
+        }
+
+        function setBookingConfirmButton(enabled, sending = false) {
+            const acceptBtn = document.getElementById('modal-accept-btn');
+            if (!acceptBtn) return;
+
+            acceptBtn.disabled = !enabled || sending;
+            acceptBtn.setAttribute('aria-disabled', (!enabled || sending) ? 'true' : 'false');
+            acceptBtn.classList.toggle('opacity-50', !enabled || sending);
+            acceptBtn.classList.toggle('cursor-not-allowed', !enabled || sending);
+            acceptBtn.classList.toggle('cursor-pointer', enabled && !sending);
+
+            const icon = acceptBtn.querySelector('i');
+            const text = acceptBtn.querySelector('span');
+            if (sending) {
+                if (icon) icon.className = 'fa-solid fa-spinner fa-spin';
+                if (text) text.textContent = 'กำลังบันทึกการจอง...';
+            } else {
+                if (icon) icon.className = 'fa-solid fa-check';
+                if (text) text.textContent = 'ยอมรับระเบียบและยืนยันการจอง';
+            }
+        }
+
+        function onTermsCheckboxChange() {
+            const termsCheckbox = document.getElementById('terms-checkbox');
+            if (!termsCheckbox) return;
+            setBookingConfirmButton(termsCheckbox.checked);
+        }
+
+        function confirmBookingWithTerms() {
+            const termsCheckbox = document.getElementById('terms-checkbox');
+            const booking = pendingBookingData;
+
+            if (!termsCheckbox || !termsCheckbox.checked) {
+                showAlert('กรุณาทำเครื่องหมายยินยอมรับระเบียบการใช้งานก่อนดำเนินการต่อ', 'error');
+                setBookingConfirmButton(false);
+                return;
+            }
+
+            if (!booking) {
+                showAlert('ไม่พบข้อมูลการจอง กรุณากรอกข้อมูลใหม่อีกครั้ง', 'error');
+                closeAnnouncementModal();
+                return;
+            }
+
+            // ------------------------------------------------------------
+            // แก้ไขสำคัญ:
+            // บันทึกลงหน้าเว็บ/เครื่องผู้ใช้ทันที ก่อนส่งไป Google Apps Script
+            // เพื่อไม่ให้รายการหาย หาก fetch หรือ Google Sheets ตอบกลับช้า
+            // ------------------------------------------------------------
+            const alreadyExists = bookings.some(b => b.id === booking.id);
+            if (!alreadyExists) {
+                bookings.push(booking);
+                saveToLocalStorage();
+            }
+
+            // แสดงรายการใหม่ทันที
+            renderAvailability();
+            renderMobileTimeline();
+            renderBookingsList();
+            renderAdminBookings();
+
+            const isAfterHoursOrHoliday = booking.supervisor !== '';
+
+            // ปิด modal และเคลียร์ฟอร์มทันที
+            closeAnnouncementModal();
+            document.getElementById('booking-form').reset();
+            updateEquipmentOptions();
+            checkTimeSlotRules();
+
+            // พาไปหน้ารายการจองทันที ไม่ต้องรอ Google Sheets
+            switchTab('my-bookings');
+            switchView('timeline');
+
+            if (isAfterHoursOrHoliday) {
+                showAlert(
+                    'บันทึกการจองในเครื่องนี้แล้ว ✓ รายการอยู่นอกเวลา/วันหยุดและรอผู้ดูแลอนุมัติ',
+                    'success'
+                );
+            } else {
+                showAlert(
+                    'บันทึกการจองเรียบร้อยแล้ว ✓ รายการจะแสดงในตารางทันที',
+                    'success'
+                );
+            }
+
+            // ------------------------------------------------------------
+            // ส่งข้อมูลไป Google Apps Script แบบเบื้องหลัง
+            // หากส่งไม่สำเร็จ รายการยังคงแสดงในเครื่องผู้ใช้
+            // ------------------------------------------------------------
+            const payload = JSON.stringify(booking);
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                body: payload,
+                keepalive: true
+            }).then(() => {
+                console.log('Booking sent to Google Apps Script:', booking.id);
+            }).catch(err => {
+                console.error('Booking submission error:', err);
+                showAlert(
+                    'รายการถูกบันทึกไว้ในหน้าเว็บแล้ว แต่ยังส่งไป Google Sheets ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อ',
+                    'error'
+                );
+            });
+        }
+
+        // รองรับกรณี browser บางตัวไม่เรียก inline onchange ตามที่คาดไว้
+        document.addEventListener('change', function (event) {
+            if (event.target && event.target.id === 'terms-checkbox') {
+                setBookingConfirmButton(event.target.checked);
+            }
+        });
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        function switchTab(tabName) {
+            const bookingSec = document.getElementById('tab-booking');
+            const myBookingsSec = document.getElementById('tab-my-bookings');
+            const teamSec = document.getElementById('tab-team');
+            const adminSec = document.getElementById('tab-admin');
+            
+            const btnBooking = document.getElementById('btn-booking');
+            const btnMyBookings = document.getElementById('btn-my-bookings');
+            const btnTeam = document.getElementById('btn-team');
+            const btnAdmin = document.getElementById('btn-admin');
+
+            bookingSec.classList.add('hidden');
+            myBookingsSec.classList.add('hidden');
+            teamSec.classList.add('hidden');
+            adminSec.classList.add('hidden');
+            
+            [btnBooking, btnMyBookings, btnTeam, btnAdmin].forEach(btn => {
+                if(btn) btn.className = "px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-medium text-xs sm:text-sm transition flex items-center space-x-2";
+            });
+
+            if(tabName === 'booking') {
+                bookingSec.classList.remove('hidden');
+                if(btnBooking) btnBooking.className = "px-4 py-2 rounded-xl bg-white text-emerald-700 font-bold text-xs sm:text-sm shadow-sm transition flex items-center space-x-2";
+            } else if(tabName === 'my-bookings') {
+                myBookingsSec.classList.remove('hidden');
+                if(btnMyBookings) btnMyBookings.className = "px-4 py-2 rounded-xl bg-white text-emerald-700 font-bold text-xs sm:text-sm shadow-sm transition flex items-center space-x-2";
+                renderMobileTimeline();
+                renderBookingsList();
+                renderCalendar();
+            } else if(tabName === 'team') {
+                teamSec.classList.remove('hidden');
+                if(btnTeam) btnTeam.className = "px-4 py-2 rounded-xl bg-white text-emerald-700 font-bold text-xs sm:text-sm shadow-sm transition flex items-center space-x-2";
+            } else if(tabName === 'admin') {
+                if(!isAdminLoggedIn) {
+                    openAdminLoginModal();
+                    return;
+                }
+                adminSec.classList.remove('hidden');
+                if(btnAdmin) btnAdmin.className = "px-4 py-2 rounded-xl bg-white text-emerald-700 font-bold text-xs sm:text-sm shadow-sm transition flex items-center space-x-2";
+                renderAdminBookings();
+                renderHolidayList();
+            }
+        }
+
+        function checkAdminAccess() {
+            if(isAdminLoggedIn) {
+                switchTab('admin');
+            } else {
+                openAdminLoginModal();
+            }
+        }
+
+        function openAdminLoginModal() {
+            document.getElementById('admin-password-input').value = '';
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+        }
+
+        function closeAdminLoginModal() {
+            document.getElementById('admin-login-modal').classList.add('hidden');
+        }
+
+        const ADMIN_PASSWORD = "admin"; // เปลี่ยนรหัสผ่านนี้ก่อนนำไปใช้งานจริง
+
+        function verifyAdminPassword() {
+            const pass = document.getElementById('admin-password-input').value;
+            if(pass === ADMIN_PASSWORD) {
+                isAdminLoggedIn = true;
+                closeAdminLoginModal();
+                switchTab('admin');
+                showAlert('เข้าสู่ระบบผู้ดูแลระบบสำเร็จ', 'success');
+            } else {
+                showAlert('รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง', 'error');
+            }
+        }
+
+        function logoutAdmin() {
+            isAdminLoggedIn = false;
+            switchTab('my-bookings');
+            showAlert('ออกจากระบบผู้ดูแลระบบเรียบร้อยแล้ว', 'success');
+        }
+
+        function switchView(viewType) {
+            const timelineView = document.getElementById('timeline-view');
+            const listView = document.getElementById('list-view');
+            const timelineBtn = document.getElementById('view-timeline-btn');
+            const listBtn = document.getElementById('view-list-btn');
+
+            if(viewType === 'timeline') {
+                timelineView.classList.remove('hidden');
+                listView.classList.add('hidden');
+                timelineBtn.className = "flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold bg-white text-emerald-700 shadow-sm transition flex items-center justify-center space-x-1.5";
+                listBtn.className = "flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition flex items-center justify-center space-x-1.5";
+                renderMobileTimeline();
+                renderCalendar();
+            } else {
+                listView.classList.remove('hidden');
+                timelineView.classList.add('hidden');
+                listBtn.className = "flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold bg-white text-emerald-700 shadow-sm transition flex items-center justify-center space-x-1.5";
+                timelineBtn.className = "flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition flex items-center justify-center space-x-1.5";
+                renderBookingsList();
+            }
+        }
+
+        function updateEquipmentOptions() {
+            const roomVal = document.getElementById('lab-room').value;
+            const eqSelect = document.getElementById('equipment');
+            eqSelect.innerHTML = '';
+            
+            if (equipmentsData[roomVal]) {
+                equipmentsData[roomVal].forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.name;
+                    opt.textContent = `${item.name} (${item.staff})`;
+                    eqSelect.appendChild(opt);
+                });
+            }
+        }
+
+        function onLabRoomChange() {
+            updateEquipmentOptions();
+            checkTimeSlotRules();
+        }
+
+        function checkTimeSlotRules() {
+            const labRoom = document.getElementById('lab-room').value;
+            const dateVal = document.getElementById('booking-date').value;
+            const startTime = document.getElementById('time-start').value;
+            const endTime = document.getElementById('time-end').value;
+            
+            const supervisorContainer = document.getElementById('supervisor-field-container');
+            const supervisorInput = document.getElementById('supervisor-name');
+            const supervisorNoticeText = document.getElementById('supervisor-notice-text');
+            const photoNoticeContainer = document.getElementById('photo-notice-container');
+
+            if (!dateVal) { renderAvailability(); return; }
+            renderAvailability();
+
+            const isWeekendHoliday = isHolidayOrWeekend(dateVal);
+            const isOutsideHours = (startTime < "08:30" || endTime > "16:30");
+            const isAfterHoursOrHoliday = isWeekendHoliday || isOutsideHours;
+            const isAnatomyLab = (labRoom === 'anatomy');
+
+            if (isAnatomyLab || isAfterHoursOrHoliday) {
+                supervisorContainer.classList.remove('hidden');
+                supervisorInput.required = true;
+
+                if (isAnatomyLab && !isAfterHoursOrHoliday) {
+                    if (supervisorNoticeText) {
+                        supervisorNoticeText.textContent = "* ห้องปฏิบัติการกายวิภาคศาสตร์จำเป็นต้องมีอาจารย์/ผู้รับผิดชอบกำกับดูแลตลอดเวลา";
+                    }
+                    photoNoticeContainer.classList.add('hidden');
+                } else if (isAfterHoursOrHoliday) {
+                    if (supervisorNoticeText) {
+                        supervisorNoticeText.textContent = "* การจองนี้นอกเวลาทำการจะถูกส่งเข้าสู่ระบบรอการอนุมัติจากผู้ดูแลระบบก่อนใช้งาน";
+                    }
+                    photoNoticeContainer.classList.remove('hidden');
+                }
+            } else {
+                supervisorContainer.classList.add('hidden');
+                supervisorInput.required = false;
+                supervisorInput.value = '';
+                photoNoticeContainer.classList.add('hidden');
+            }
+        }
+
+        function handleBooking(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('user-name').value.trim();
+            const email = document.getElementById('user-email').value.trim();
+            const labRoom = document.getElementById('lab-room').value;
+            const roomSelect = document.getElementById('lab-room');
+            const roomText = roomSelect.options[roomSelect.selectedIndex].text;
+            const equipment = document.getElementById('equipment').value;
+            const date = document.getElementById('booking-date').value;
+            const startTime = document.getElementById('time-start').value;
+            const endTime = document.getElementById('time-end').value;
+            const supervisorInput = document.getElementById('supervisor-name').value.trim();
+
+            if (startTime >= endTime) {
+                showAlert('เวลาสิ้นสุดการใช้งานต้องมากกว่าเวลาเริ่มต้นเสมอ (รูปแบบ 24 ชม.)', 'error');
+                return;
+            }
+
+            const isAnatomyLab = (labRoom === 'anatomy');
+            const isWeekendHoliday = isHolidayOrWeekend(date);
+            const isOutsideHours = (startTime < "08:30" || endTime > "16:30");
+            const isAfterHoursOrHoliday = isWeekendHoliday || isOutsideHours;
+
+            if ((isAnatomyLab || isAfterHoursOrHoliday) && !supervisorInput) {
+                showAlert('กรุณาระบุชื่อผู้รับผิดชอบ / อาจารย์ผู้ควบคุมดูแลสำหรับการใช้งานห้องปฏิบัติการกายวิภาคศาสตร์ หรือการจองนอกเวลา', 'error');
+                return;
+            }
+
+            if (hasBookingConflict({ date, room: roomText, equipment, startTime, endTime })) {
+                showAlert('ช่วงเวลานี้มีผู้จองอุปกรณ์เดียวกันแล้ว กรุณาเลือกช่วงเวลาอื่นจากตารางคิวด้านบน', 'error');
+                renderAvailability();
+                return;
+            }
+
+            pendingBookingData = {
+                id: 'B' + Date.now(),
+                name,
+                email,
+                room: roomText,
+                equipment,
+                date,
+                time: `${startTime} - ${endTime}`,
+                supervisor: (isAnatomyLab || isAfterHoursOrHoliday) ? supervisorInput : '',
+                status: isAfterHoursOrHoliday ? 'pending' : 'approved',
+                termsAccepted: true
+            };
+
+            openAnnouncementModal(true);
+        }
+
+        function changeDay(days) {
+            let d = new Date(currentTimelineDate);
+            d.setDate(d.getDate() + days);
+            currentTimelineDate = d.toISOString().split('T')[0];
+            document.getElementById('timeline-date-picker').value = currentTimelineDate;
+            renderMobileTimeline();
+            renderCalendar();
+        }
+
+        function onTimelineDateChange(val) {
+            if(!val) return;
+            currentTimelineDate = val;
+            renderMobileTimeline();
+            renderCalendar();
+        }
+
+        function renderMobileTimeline() {
+            const container = document.getElementById('timeline-cards-container');
+            const dateLabel = document.getElementById('timeline-date-label');
+            if(!container || !dateLabel) return;
+            container.innerHTML = '';
+
+            const thaiMonths = [
+                "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+            ];
+
+            const dObj = new Date(currentTimelineDate);
+            const dayNum = dObj.getDate();
+            const monthName = thaiMonths[dObj.getMonth()];
+            const yearNum = dObj.getFullYear() + 543;
+            dateLabel.textContent = `วันที่ ${dayNum} ${monthName} ${yearNum}`;
+
+            const holidayCheck = thaiHolidays[currentTimelineDate];
+            const isWknd = (dObj.getDay() === 0 || dObj.getDay() === 6);
+
+            if (holidayCheck || isWknd) {
+                const notice = document.createElement('div');
+                notice.className = "bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-2xl text-xs font-semibold flex items-center space-x-2";
+                notice.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-600 text-sm"></i><span>วันนี้เป็น${holidayCheck ? 'วันหยุดนักขัตฤกษ์/วันหยุดพิเศษ (' + holidayCheck + ')' : 'วันหยุดสุดสัปดาห์'} กรุณาตรวจสอบการอนุมัติและติดต่อผู้ดูแลห้อง</span>`;
+                container.appendChild(notice);
+            }
+
+            const dayBookings = bookings.filter(b => b.date === currentTimelineDate);
+
+            if (dayBookings.length === 0) {
+                container.innerHTML += `
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-8 text-center space-y-2">
+                        <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto text-lg">
+                            <i class="fa-solid fa-calendar-xmark"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-700">ไม่มีการจองคิวในวันนี้</p>
+                        <p class="text-xs text-slate-400">ท่านสามารถจองคิวเครื่องมือได้ที่เมนู "จองคิวอุปกรณ์"</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dayBookings.sort((a,b) => a.time.localeCompare(b.time));
+
+            dayBookings.forEach(b => {
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3 hover:shadow-md transition";
+                
+                let supBadge = b.supervisor ? `<div class="text-xs text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200/60 font-semibold"><i class="fa-solid fa-user-shield mr-1.5 text-amber-600"></i> ผู้รับผิดชอบ/ควบคุม: ${b.supervisor}</div>` : '';
+                
+                let statusBadge = b.status === 'pending' 
+                    ? `<span class="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full border border-amber-200/60"><i class="fa-solid fa-clock mr-1"></i> รออนุมัติ</span>`
+                    : `<span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200/60"><i class="fa-solid fa-check mr-1"></i> ยืนยันแล้ว</span>`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200/50"><i class="fa-regular fa-clock mr-1"></i> ${b.time} น.</span>
+                            <h4 class="font-bold text-slate-900 text-base mt-2">${b.equipment}</h4>
+                            <p class="text-xs text-slate-500">${b.room}</p>
+                        </div>
+                        <div>${statusBadge}</div>
+                    </div>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-100 text-xs">
+                        <span class="text-slate-600 font-medium"><i class="fa-solid fa-user mr-1 text-slate-400"></i> ผู้จอง: ${b.name}</span>
+                        <button onclick="openDetailsModal('${b.id}')" class="text-emerald-600 hover:text-emerald-800 font-bold flex items-center space-x-1">
+                            <span>ดูรายละเอียด</span>
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+                    ${supBadge}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderBookingsList() {
+            const tbody = document.getElementById('booking-list');
+            const searchVal = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : '';
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const filtered = bookings.filter(b => 
+                b.name.toLowerCase().includes(searchVal) || 
+                b.equipment.toLowerCase().includes(searchVal) ||
+                b.room.toLowerCase().includes(searchVal)
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">ไม่พบรายการจองคิวในระบบ</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                
+                let supInfo = b.supervisor ? `<div class="text-xs text-amber-700 font-semibold mt-0.5"><i class="fa-solid fa-user-shield mr-1"></i> ผู้รับผิดชอบ: ${b.supervisor}</div>` : '';
+                
+                let statusBadge = b.status === 'pending'
+                    ? `<span class="inline-flex items-center px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full border border-amber-200/60"><i class="fa-solid fa-clock text-[8px] mr-1.5"></i> รออนุมัติ</span>`
+                    : `<span class="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200/60"><i class="fa-solid fa-circle text-[8px] mr-1.5"></i> ยืนยันแล้ว</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-4 font-bold text-slate-900">${b.name}</td>
+                    <td class="p-4">
+                        <div class="font-semibold text-emerald-700">${b.equipment}</div>
+                        <div class="text-xs text-slate-500">${b.room}</div>
+                        ${supInfo}
+                    </td>
+                    <td class="p-4">
+                        <div class="text-slate-700 font-medium">${b.date}</div>
+                        <div class="text-xs text-slate-500">${b.time} น.</div>
+                    </td>
+                    <td class="p-4">${statusBadge}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="openCancelModal('${b.id}')" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-ban mr-1"></i> ยกเลิกคิว
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateAdminStats() {
+            const total = document.getElementById('admin-stat-total');
+            if (!total) return;
+            total.textContent = bookings.length;
+            document.getElementById('admin-stat-pending').textContent = bookings.filter(b => b.status === 'pending').length;
+            document.getElementById('admin-stat-approved').textContent = bookings.filter(b => b.status === 'approved').length;
+            document.getElementById('admin-stat-today').textContent = bookings.filter(b => b.date === getLocalDateISO() && !['cancelled','rejected'].includes(b.status)).length;
+        }
+
+        function renderAdminBookings() {
+            const tbody = document.getElementById('admin-booking-list');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            updateAdminStats();
+
+            if (bookings.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">ยังไม่มีรายการจองในระบบ</td></tr>`;
+                return;
+            }
+
+            bookings.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                
+                let supInfo = b.supervisor ? `<div class="text-xs text-amber-700 font-semibold mt-0.5"><i class="fa-solid fa-user-shield mr-1"></i> ผู้รับผิดชอบ: ${b.supervisor}</div>` : '';
+                
+                let approveBtn = b.status === 'pending'
+                    ? `<button onclick="adminApproveBooking('${b.id}')" class="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm"><i class="fa-solid fa-check mr-1"></i> อนุมัติ</button>`
+                    : `<span class="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-semibold"><i class="fa-solid fa-check mr-1"></i> อนุมัติแล้ว</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-4 font-bold text-slate-900">${b.name}</td>
+                    <td class="p-4">
+                        <a href="mailto:${b.email}" class="text-emerald-700 font-mono text-xs font-semibold hover:underline flex items-center">
+                            <i class="fa-regular fa-envelope mr-1.5"></i>${b.email}
+                        </a>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-semibold text-slate-800">${b.equipment}</div>
+                        <div class="text-xs text-slate-500">${b.room}</div>
+                        ${supInfo}
+                    </td>
+                    <td class="p-4">
+                        <div class="text-slate-700 font-medium">${b.date}</div>
+                        <div class="text-xs text-slate-500">${b.time} น.</div>
+                    </td>
+                    <td class="p-4 text-right space-x-1">
+                        ${approveBtn}
+                        <button onclick="adminDeleteBooking('${b.id}')" class="inline-flex items-center px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-trash-can mr-1"></i> ลบคิว
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function adminApproveBooking(id) {
+            const booking = bookings.find(b => b.id === id);
+            if (booking) {
+                booking.status = 'approved';
+                saveToLocalStorage();
+                renderAdminBookings();
+                updateAdminStats();
+                renderMobileTimeline();
+                renderBookingsList();
+                showAlert('อนุมัติการจองคิวเรียบร้อยแล้ว', 'success');
+            }
+        }
+
+        function adminDeleteBooking(id) {
+            bookings = bookings.filter(b => b.id !== id);
+            saveToLocalStorage();
+            renderAdminBookings();
+                updateAdminStats();
+            renderMobileTimeline();
+            renderBookingsList();
+            showAlert('ลบรายการจองเรียบร้อยแล้ว', 'success');
+        }
+
+        function openDetailsModal(id) {
+            selectedBookingId = id;
+            const b = bookings.find(item => item.id === id);
+            if (!b) return;
+
+            document.getElementById('detail-name').textContent = b.name;
+            document.getElementById('detail-room').textContent = b.room;
+            document.getElementById('detail-equipment').textContent = b.equipment;
+            document.getElementById('detail-date').textContent = b.date;
+            document.getElementById('detail-time').textContent = b.time + ' น.';
+
+            const supContainer = document.getElementById('detail-supervisor-container');
+            const supEl = document.getElementById('detail-supervisor');
+            if (b.supervisor) {
+                supContainer.classList.remove('hidden');
+                supEl.textContent = b.supervisor;
+            } else {
+                supContainer.classList.add('hidden');
+            }
+
+            document.getElementById('details-modal').classList.remove('hidden');
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('details-modal').classList.add('hidden');
+        }
+
+        function openCancelFromDetails() {
+            closeDetailsModal();
+            openCancelModal(selectedBookingId);
+        }
+
+        function openCancelModal(id) {
+            selectedBookingId = id;
+            document.getElementById('cancel-email-input').value = '';
+            document.getElementById('cancel-modal').classList.remove('hidden');
+        }
+
+        function closeCancelModal() {
+            document.getElementById('cancel-modal').classList.add('hidden');
+        }
+
+        function confirmCancellation() {
+            const inputEmail = document.getElementById('cancel-email-input').value.trim();
+            const booking = bookings.find(b => b.id === selectedBookingId);
+
+            if (!booking) {
+                showAlert('ไม่พบข้อมูลการจอง', 'error');
+                closeCancelModal();
+                return;
+            }
+
+            if (inputEmail.toLowerCase() !== booking.email.toLowerCase()) {
+                showAlert('อีเมลยืนยันไม่ถูกต้อง กรุณากรอกอีเมลเดียวกับที่ใช้ลงทะเบียนจองคิว', 'error');
+                return;
+            }
+
+            bookings = bookings.filter(b => b.id !== selectedBookingId);
+            saveToLocalStorage();
+            closeCancelModal();
+            showAlert('ยกเลิกคิวการใช้งานสำเร็จเรียบร้อยแล้ว', 'success');
+            renderMobileTimeline();
+            renderBookingsList();
+            renderAdminBookings();
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('lab_bookings', JSON.stringify(bookings));
+        }
+
+        function saveHolidaysToLocalStorage() {
+            localStorage.setItem('lab_holidays', JSON.stringify(thaiHolidays));
+        }
+
+        function handleAddHoliday(e) {
+            e.preventDefault();
+            const dateVal = document.getElementById('holiday-date-input').value;
+            const nameVal = document.getElementById('holiday-name-input').value.trim();
+
+            if (!dateVal || !nameVal) return;
+
+            thaiHolidays[dateVal] = nameVal;
+            saveHolidaysToLocalStorage();
+
+            document.getElementById('holiday-date-input').value = '';
+            document.getElementById('holiday-name-input').value = '';
+
+            renderHolidayList();
+            renderCalendar();
+            renderMobileTimeline();
+            showAlert(`เพิ่มวันหยุด "${nameVal}" (${dateVal}) เรียบร้อยแล้ว`, 'success');
+        }
+
+        function renderHolidayList() {
+            const tbody = document.getElementById('holiday-list-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const keys = Object.keys(thaiHolidays).sort();
+            if (keys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">ยังไม่มีวันหยุดในระบบ</td></tr>`;
+                return;
+            }
+
+            keys.forEach(date => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 font-mono font-bold text-slate-700">${date}</td>
+                    <td class="p-3 font-medium text-slate-800">${thaiHolidays[date]}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="deleteHoliday('${date}')" class="text-rose-600 hover:text-rose-800 font-bold text-xs p-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteHoliday(date) {
+            delete thaiHolidays[date];
+            saveHolidaysToLocalStorage();
+            renderHolidayList();
+            renderCalendar();
+            renderMobileTimeline();
+            showAlert(`ลบวันหยุด ${date} เรียบร้อยแล้ว`, 'success');
+        }
+
+        function loadDefaultHolidays(year) {
+            if (year === '2026') {
+                const h2026 = {
+                    "2026-01-01": "วันขึ้นปีใหม่",
+                    "2026-03-03": "วันมาฆบูชา",
+                    "2026-04-06": "วันจักรี",
+                    "2026-04-13": "วันสงกรานต์",
+                    "2026-04-14": "วันสงกรานต์",
+                    "2026-04-15": "วันสงกรานต์",
+                    "2026-05-01": "วันแรงงานแห่งชาติ",
+                    "2026-05-04": "วันฉัตรมงคล",
+                    "2026-05-31": "วันวิสาขบูชา",
+                    "2026-07-01": "วันหยุดภาคครึ่งปี",
+                    "2026-07-28": "วันเฉลิมพระชนมพรรษา ร.10",
+                    "2026-07-29": "วันอาสาฬหบูชา",
+                    "2026-07-30": "วันเข้าพรรษา",
+                    "2026-08-12": "วันแม่แห่งชาติ",
+                    "2026-10-13": "วันนวมินทรมหาราช",
+                    "2026-10-23": "วันปิยมหาราช",
+                    "2026-12-05": "วันพ่อแห่งชาติ",
+                    "2026-12-10": "วันรัฐธรรมนูญ",
+                    "2026-12-31": "วันสิ้นปี"
+                };
+                document.getElementById('bulk-holiday-textarea').value = JSON.stringify(h2026, null, 2);
+            } else if (year === '2027') {
+                const h2027 = {
+                    "2027-01-01": "วันขึ้นปีใหม่",
+                    "2027-02-22": "วันมาฆบูชา",
+                    "2027-04-06": "วันจักรี",
+                    "2027-04-13": "วันสงกรานต์",
+                    "2027-04-14": "วันสงกรานต์",
+                    "2027-04-15": "วันสงกรานต์",
+                    "2027-05-01": "วันแรงงานแห่งชาติ",
+                    "2027-05-04": "วันฉัตรมงคล",
+                    "2027-05-20": "วันวิสาขบูชา",
+                    "2027-07-01": "วันหยุดภาคครึ่งปี",
+                    "2027-07-28": "วันเฉลิมพระชนมพรรษา ร.10",
+                    "2027-08-12": "วันแม่แห่งชาติ",
+                    "2027-10-13": "วันนวมินทรมหาราช",
+                    "2027-10-23": "วันปิยมหาราช",
+                    "2027-12-05": "วันพ่อแห่งชาติ",
+                    "2027-12-10": "วันรัฐธรรมนูญ",
+                    "2027-12-31": "วันสิ้นปี"
+                };
+                document.getElementById('bulk-holiday-textarea').value = JSON.stringify(h2027, null, 2);
+            }
+        }
+
+        function handleBulkImportHolidays() {
+            const text = document.getElementById('bulk-holiday-textarea').value.trim();
+            if (!text) {
+                showAlert('กรุณากรกหรือเลือกโหลดชุดวันหยุดก่อนดำเนินการนำเข้า', 'error');
+                return;
+            }
+            try {
+                const parsed = JSON.parse(text);
+                if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    throw new Error('รูปแบบไม่ถูกต้อง');
+                }
+                thaiHolidays = { ...thaiHolidays, ...parsed };
+                saveHolidaysToLocalStorage();
+                renderHolidayList();
+                renderCalendar();
+                renderMobileTimeline();
+                showAlert('นำเข้าชุดข้อมูลวันหยุดสำเร็จเรียบร้อยแล้ว', 'success');
+            } catch (err) {
+                showAlert('เกิดข้อผิดพลาด: รูปแบบ JSON ไม่ถูกต้อง', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
