@@ -417,7 +417,7 @@
                 <div class="space-y-4 mb-10 staff-section" data-lab="microscope">
                     <div class="flex items-center space-x-3 text-emerald-900 font-bold text-base border-l-4 border-emerald-600 pl-3">
                         <i class="fa-solid fa-microscope text-emerald-600"></i>
-                        <span>อาจารย์ผู้ดูแล</span>
+                        <span>ห้องกล้องจุลทรรศน์ (Microscope Laboratory)</span>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
@@ -435,7 +435,7 @@
                                     <span class="absolute -bottom-1 -right-1 bg-emerald-500 w-4 h-4 rounded-full border-2 border-white" title="พร้อมให้คำปรึกษา"></span>
                                 </div>
                                 <div class="space-y-1 flex-1">
-                                    <span class="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[11px] rounded-md border border-emerald-200/50">อาจารย์ผู้รับผิดชอบ</span>
+                                    <span class="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[11px] rounded-md border border-emerald-200/50">อาจารย์ผู้รับผิดชอบหลัก</span>
                                     <h3 class="font-bold text-slate-900 text-base leading-tight">ผศ.ดร. อรอุษา คำสุข</h3>
                                     <p class="text-xs font-semibold text-slate-500 italic">Asst.Prof. Ornusa Khamsuk (Ph.D)</p>
                                     <p class="text-xs text-emerald-600 font-medium pt-0.5">ห้องกล้องจุลทรรศน์</p>
@@ -467,7 +467,7 @@
                                     <span class="absolute -bottom-1 -right-1 bg-emerald-500 w-4 h-4 rounded-full border-2 border-white" title="พร้อมให้คำปรึกษา"></span>
                                 </div>
                                 <div class="space-y-1 flex-1">
-                                    <span class="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[11px] rounded-md border border-emerald-200/50">อาจารย์ผู้รับผิดชอบ</span>
+                                    <span class="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[11px] rounded-md border border-emerald-200/50">อาจารย์ผู้รับผิดชอบหลัก</span>
                                     <h3 class="font-bold text-slate-900 text-base leading-tight">ผศ.ดร. พรสวรรค์ สุทธินนท์</h3>
                                     <p class="text-xs font-semibold text-slate-500 italic">Asst.Prof. Pornsawan Sutthinon (Ph.D)</p>
                                     <p class="text-xs text-emerald-600 font-medium pt-0.5">ห้องกล้องจุลทรรศน์ & กายวิภาคศาสตร์</p>
@@ -491,7 +491,7 @@
                 <div class="space-y-4 staff-section" data-lab="anatomy">
                     <div class="flex items-center space-x-3 text-teal-900 font-bold text-base border-l-4 border-teal-600 pl-3">
                         <i class="fa-solid fa-bone text-teal-600"></i>
-                        <span>นิสิตดูแลห้องปฏิบัติการกายวิภาคศาสตร์ (Anatomy Laboratory)</span>
+                        <span>ห้องปฏิบัติการกายวิภาคศาสตร์ (Anatomy Laboratory)</span>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
@@ -520,7 +520,7 @@
                                         <i class="fa-regular fa-envelope text-emerald-600 w-4"></i>
                                         <span class="font-medium">Facebook:</span>
                                     </span>
-                                    <a href="https://web.facebook.com/stk.satigu" class="font-mono text-emerald-600 hover:underline font-semibold" target="_blank">Stk SatiGu</a>
+                                    <a href="https://web.facebook.com/stk.satigu" class="font-mono text-emerald-600 hover:underline font-semibold" target="_blank">sathika.onwong</a>
                                 </div>
                             </div>
                         </div>
@@ -835,7 +835,7 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxF4GTXtlWkXkv7uFxiWHbv07pS8RSWf4ldpLfRfLnPp6LxbDaEun-06FW2Q44AZ2Rc/exec';
+        const SCRIPT_URL = 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
         let selectedBookingId = null;
         let isAdminLoggedIn = false;
         let pendingBookingData = null;
@@ -917,6 +917,8 @@
             renderCalendar();
             renderMobileTimeline();
             renderBookingsList();
+            // โหลดข้อมูลส่วนกลางจาก Google Sheets หลังจากหน้าเว็บพร้อม
+            loadBookingsFromServer();
         };
 
         function getLocalDateISO() {
@@ -1182,6 +1184,115 @@
             setBookingConfirmButton(termsCheckbox.checked);
         }
 
+
+        // ============================================================
+        // Google Sheets synchronization
+        // ============================================================
+        function normalizeBookingDate(value) {
+            if (value === null || value === undefined) return '';
+            const text = String(value).trim();
+            if (!text) return '';
+
+            // Already ISO date
+            if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+            // Google Sheets display may return dd/MM/yyyy or d/M/yyyy
+            let m = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (m) {
+                const a = Number(m[1]), b = Number(m[2]), y = Number(m[3]);
+                // Thai/Google Sheets convention: day/month/year
+                const day = a, month = b;
+                return `${y}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            }
+
+            // ISO datetime / browser Date string
+            const d = new Date(text);
+            if (!Number.isNaN(d.getTime())) {
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            }
+            return text;
+        }
+
+        async function loadBookingsFromServer() {
+            if (!SCRIPT_URL || SCRIPT_URL.includes('PASTE_YOUR_')) return;
+
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=list&_=' + Date.now(), {
+                    method: 'GET',
+                    cache: 'no-store',
+                    redirect: 'follow'
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success' && Array.isArray(result.data)) {
+                    const serverBookings = result.data.map(normalizeServerBooking);
+
+                    // ใช้ข้อมูลจาก Google Sheets เป็นข้อมูลกลางของทุกอุปกรณ์
+                    bookings = serverBookings;
+                    saveToLocalStorage();
+
+                    renderAvailability();
+                    renderCalendar();
+                    renderMobileTimeline();
+                    renderBookingsList();
+                    renderAdminBookings();
+
+                    console.log('โหลดข้อมูลจาก Google Sheets สำเร็จ:', bookings.length, bookings);
+                } else {
+                    console.warn('Google Sheets ตอบกลับแต่ข้อมูลไม่ถูกต้อง:', result);
+                }
+            } catch (error) {
+                console.warn('ไม่สามารถโหลดข้อมูลจาก Google Sheets:', error);
+                // หากโหลดไม่ได้ ให้ใช้ข้อมูล localStorage ต่อไป
+            }
+        }
+
+        function normalizeServerBooking(b) {
+            return {
+                id: String(b.ID || b.id || ''),
+                name: String(b.Name || b.name || ''),
+                email: String(b.Email || b.email || ''),
+                room: String(b.Room || b.room || ''),
+                equipment: String(b.Equipment || b.equipment || ''),
+                date: normalizeBookingDate(b.Date || b.date || ''),
+                time: String(b.Time || b.time || b.TimeSlot || b.timeSlot || ''),
+                supervisor: String(b.Supervisor || b.supervisor || ''),
+                status: String(b.Status || b.status || 'approved').toLowerCase(),
+                termsAccepted: String(b.TermsAccepted || b.termsAccepted || 'true') !== 'false',
+                createdAt: String(b.CreatedAt || b.createdAt || '')
+            };
+        }
+
+        async function sendBookingToServer(booking) {
+            if (!SCRIPT_URL || SCRIPT_URL.includes('PASTE_YOUR_')) {
+                console.warn('ยังไม่ได้ตั้งค่า SCRIPT_URL');
+                return false;
+            }
+
+            try {
+                const payload = JSON.stringify({
+                    action: 'create',
+                    ...booking
+                });
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: payload,
+                    keepalive: true
+                });
+
+                return true;
+            } catch (error) {
+                console.error('ส่งข้อมูลไป Google Sheets ไม่สำเร็จ:', error);
+                return false;
+            }
+        }
+
         function confirmBookingWithTerms() {
             const termsCheckbox = document.getElementById('terms-checkbox');
             const booking = pendingBookingData;
@@ -1243,24 +1354,13 @@
             // ส่งข้อมูลไป Google Apps Script แบบเบื้องหลัง
             // หากส่งไม่สำเร็จ รายการยังคงแสดงในเครื่องผู้ใช้
             // ------------------------------------------------------------
-            const payload = JSON.stringify(booking);
-
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8'
-                },
-                body: payload,
-                keepalive: true
-            }).then(() => {
-                console.log('Booking sent to Google Apps Script:', booking.id);
-            }).catch(err => {
-                console.error('Booking submission error:', err);
-                showAlert(
-                    'รายการถูกบันทึกไว้ในหน้าเว็บแล้ว แต่ยังส่งไป Google Sheets ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อ',
-                    'error'
-                );
+            sendBookingToServer(booking).then(ok => {
+                if (!ok) {
+                    showAlert(
+                        'รายการแสดงในเว็บแล้ว แต่ยังส่งข้อมูลไป Google Sheets ไม่สำเร็จ กรุณาตรวจสอบ URL ของ Web App',
+                        'error'
+                    );
+                }
             });
         }
 
@@ -1690,11 +1790,35 @@
             });
         }
 
+        async function sendBookingActionToServer(action, data) {
+            if (!SCRIPT_URL || SCRIPT_URL.includes('PASTE_YOUR_')) return false;
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({ action, ...data }),
+                    keepalive: true
+                });
+                return true;
+            } catch (error) {
+                console.error('Google Sheets action failed:', error);
+                return false;
+            }
+        }
+
         function adminApproveBooking(id) {
             const booking = bookings.find(b => b.id === id);
             if (booking) {
                 booking.status = 'approved';
                 saveToLocalStorage();
+                sendBookingActionToServer('update', {
+                    id: booking.id,
+                    status: 'approved'
+                });
                 renderAdminBookings();
                 updateAdminStats();
                 renderMobileTimeline();
@@ -1706,6 +1830,7 @@
         function adminDeleteBooking(id) {
             bookings = bookings.filter(b => b.id !== id);
             saveToLocalStorage();
+            sendBookingActionToServer('delete', { id });            
             renderAdminBookings();
                 updateAdminStats();
             renderMobileTimeline();
@@ -1772,6 +1897,7 @@
 
             bookings = bookings.filter(b => b.id !== selectedBookingId);
             saveToLocalStorage();
+            sendBookingActionToServer('cancel', { id: selectedBookingId });
             closeCancelModal();
             showAlert('ยกเลิกคิวการใช้งานสำเร็จเรียบร้อยแล้ว', 'success');
             renderMobileTimeline();
