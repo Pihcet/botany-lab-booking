@@ -835,7 +835,7 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyVeSv2azjCCynp5h7F2inRpepj-D4MCtbyyPVdtfVGLLFsJGdkJA1-3ShhfaCDuSI/exec';
         let selectedBookingId = null;
         let isAdminLoggedIn = false;
         let pendingBookingData = null;
@@ -1214,7 +1214,7 @@
         }
 
         async function loadBookingsFromServer() {
-            if (!SCRIPT_URL || SCRIPT_URL.includes('PASTE_YOUR_')) return;
+            if (!SCRIPT_URL || SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbyVeSv2azjCCynp5h7F2inRpepj-D4MCtbyyPVdtfVGLLFsJGdkJA1-3ShhfaCDuSI/exec')) return;
 
             try {
                 const response = await fetch(SCRIPT_URL + '?action=list&_=' + Date.now(), {
