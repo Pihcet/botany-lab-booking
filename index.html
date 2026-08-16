@@ -357,10 +357,10 @@
                             <i class="fa-solid fa-arrow-left text-[10px]"></i>
                             <span>วันก่อนหน้า</span>
                         </button>
-                        <div class="flex items-center space-x-2">
+                        <div class="relative flex items-center space-x-2">
                             <i class="fa-regular fa-calendar text-emerald-600"></i>
                             <span id="timeline-date-label" class="font-bold text-slate-900 text-sm sm:text-base"></span>
-                            <input type="date" id="timeline-date-picker" onchange="onTimelineDateChange(this.value)" class="w-11 h-11 border-0 p-0 text-transparent bg-transparent cursor-pointer opacity-0 absolute">
+                            <input type="date" id="timeline-date-picker" onchange="onTimelineDateChange(this.value)" class="absolute inset-0 w-full h-full border-0 p-0 text-transparent bg-transparent cursor-pointer opacity-0">
                         </div>
                         <button onclick="changeDay(1)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 text-xs font-semibold flex items-center space-x-1 transition">
                             <span>วันถัดไป</span>
@@ -936,6 +936,22 @@
             renderBookingsList();
             // โหลดข้อมูลส่วนกลางจาก Google Sheets หลังจากหน้าเว็บพร้อม
             loadBookingsFromServer();
+
+            // ------------------------------------------------------------
+            // แก้ปัญหา "เว็บกับมือถือไม่เชื่อมกัน":
+            // เดิมระบบโหลดข้อมูลจาก Google Sheets แค่ครั้งเดียวตอนเปิดหน้าเว็บ
+            // ถ้าเปิดค้างไว้นาน หรือมีคนจองจากเครื่อง/มือถืออีกเครื่องระหว่างนั้น
+            // ฝั่งนี้จะไม่เห็นข้อมูลใหม่จนกว่าจะรีเฟรชหน้าเองเท่านั้น
+            // จึงเพิ่ม (1) การดึงข้อมูลซ้ำเป็นระยะ และ (2) ดึงใหม่ทุกครั้งที่
+            // สลับกลับมาที่แท็บ/แอปนี้ (สำคัญมากบนมือถือที่มักสลับแอปไปมา)
+            // ------------------------------------------------------------
+            setInterval(loadBookingsFromServer, 45000);
+
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') {
+                    loadBookingsFromServer();
+                }
+            });
         };
 
         function getLocalDateISO() {
@@ -1230,6 +1246,9 @@
             return text;
         }
 
+        // เก็บสถานะการ sync ล่าสุด เพื่อไม่ให้ยิง alert ซ้ำๆ ทุก 45 วิ ตอนเน็ตหลุดยาว
+        let lastServerSyncFailed = false;
+
         async function loadBookingsFromServer() {
             if (!SCRIPT_URL || SCRIPT_URL.includes('PASTE_YOUR_')) return;
             try {
@@ -1238,6 +1257,10 @@
                     cache: 'no-store',
                     redirect: 'follow'
                 });
+
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
 
                 const result = await response.json();
 
@@ -1254,13 +1277,26 @@
                     renderBookingsList();
                     renderAdminBookings();
 
+                    if (lastServerSyncFailed) {
+                        showAlert('เชื่อมต่อเซิร์ฟเวอร์กลับมาเป็นปกติแล้ว ข้อมูลอัปเดตล่าสุดแล้ว', 'success');
+                    }
+                    lastServerSyncFailed = false;
+
                     console.log('โหลดข้อมูลจาก Google Sheets สำเร็จ:', bookings.length, bookings);
                 } else {
                     console.warn('Google Sheets ตอบกลับแต่ข้อมูลไม่ถูกต้อง:', result);
+                    if (!lastServerSyncFailed) {
+                        showAlert('เซิร์ฟเวอร์ตอบกลับข้อมูลไม่ถูกต้อง กำลังแสดงข้อมูลล่าสุดที่มีในเครื่องนี้ไปก่อน', 'error');
+                    }
+                    lastServerSyncFailed = true;
                 }
             } catch (error) {
                 console.warn('ไม่สามารถโหลดข้อมูลจาก Google Sheets:', error);
-                // หากโหลดไม่ได้ ให้ใช้ข้อมูล localStorage ต่อไป
+                // หากโหลดไม่ได้ ให้ใช้ข้อมูล localStorage ต่อไป แต่ต้องแจ้งผู้ใช้ให้รู้ตัว
+                if (!lastServerSyncFailed) {
+                    showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กำลังแสดงข้อมูลล่าสุดที่บันทึกไว้ในเครื่องนี้ กรุณาตรวจสอบอินเทอร์เน็ต', 'error');
+                }
+                lastServerSyncFailed = true;
             }
         }
 
@@ -1377,6 +1413,10 @@
                         'error'
                     );
                 }
+                // หมายเหตุ: การส่งด้วย mode 'no-cors' ทำให้เช็คผลจริงจาก Apps Script ไม่ได้
+                // (ok=true แค่แปลว่าอินเทอร์เน็ตส่งออกไปได้ ไม่ได้แปลว่า Apps Script บันทึกสำเร็จ)
+                // จึงดึงข้อมูลจริงจากเซิร์ฟเวอร์กลับมาเช็คซ้ำอีกครั้งหลังรอให้ Apps Script ประมวลผลเสร็จ
+                setTimeout(loadBookingsFromServer, 3000);
             });
         }
 
@@ -1421,6 +1461,8 @@
                 renderMobileTimeline();
                 renderBookingsList();
                 renderCalendar();
+                // ดึงข้อมูลสดจากเซิร์ฟเวอร์ทุกครั้งที่เข้าแท็บนี้ ไม่ต้องรอรอบ poll 45 วิ
+                loadBookingsFromServer();
             } else if(tabName === 'team') {
                 teamSec.classList.remove('hidden');
                 if(btnTeam) btnTeam.className = "px-4 py-2 rounded-xl bg-white text-emerald-700 font-bold text-xs sm:text-sm shadow-sm transition flex items-center space-x-2";
@@ -1433,6 +1475,7 @@
                 if(btnAdmin) btnAdmin.className = "px-4 py-2 rounded-xl bg-white text-emerald-700 font-bold text-xs sm:text-sm shadow-sm transition flex items-center space-x-2";
                 renderAdminBookings();
                 renderHolidayList();
+                loadBookingsFromServer();
             }
         }
 
@@ -1840,6 +1883,8 @@
                 renderMobileTimeline();
                 renderBookingsList();
                 showAlert('อนุมัติการจองคิวเรียบร้อยแล้ว', 'success');
+                // ดึงข้อมูลจริงจากเซิร์ฟเวอร์ซ้ำ เพื่อยืนยันว่า Google Sheets อัปเดตตรงกัน
+                setTimeout(loadBookingsFromServer, 3000);
             }
         }
 
@@ -1848,10 +1893,11 @@
             saveToLocalStorage();
             sendBookingActionToServer('delete', { id });            
             renderAdminBookings();
-                updateAdminStats();
+            updateAdminStats();
             renderMobileTimeline();
             renderBookingsList();
             showAlert('ลบรายการจองเรียบร้อยแล้ว', 'success');
+            setTimeout(loadBookingsFromServer, 3000);
         }
 
         function openDetailsModal(id) {
@@ -1919,6 +1965,7 @@
             renderMobileTimeline();
             renderBookingsList();
             renderAdminBookings();
+            setTimeout(loadBookingsFromServer, 3000);
         }
 
         function saveToLocalStorage() {
